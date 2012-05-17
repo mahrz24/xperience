@@ -15,6 +15,8 @@
 #include <tclap/CmdLine.h>
 #include <libconfig.h++>
 
+#include <mulog/core>
+
 #include "Types.hpp"
 #include "Parameter.hpp"
 
@@ -32,7 +34,7 @@
 #endif
 
 #define VERSION "0.1"
-#define CMD_STRING "Xperience experiment running framework"
+#define CMD_STRING "Xperience experiment execution framework"
 
 namespace xp
 {
@@ -116,14 +118,14 @@ namespace xp
     }
 
     void log(const std::string str);
-
-    std::string dataFilename();
-
     void sampleValues(std::vector<double>& values);
 
+    std::string dataFilename();
     std::map<std::string, Parameter*>* params();
 
     double msecs();
+
+    mulog::logger & logger() { return scopeLogger; };
 
   private:
 
@@ -131,12 +133,8 @@ namespace xp
     void listExperiments();
     void listParams();
 
-
-
     std::string mpiLog(int rank, int targetRank= -1, int srcRank= -1);
-
     std::string dateTimeString();
-
     std::string timeString();
 
 #ifdef USE_MPI
@@ -160,7 +158,6 @@ namespace xp
     void msg(const std::string& string);
     void verb(const std::string& string);
 
-    void log(LogLevel lvl, const std::string& string);
     bool fexists(std::string & filename);
 
     std::string _name;
@@ -177,11 +174,9 @@ namespace xp
     TCLAP::SwitchArg _stdoutStatistics;
     TCLAP::SwitchArg _verbose;
 
-
     TCLAP::ValueArg<int> _threadArg;
     TCLAP::ValueArg<int> _threadChunks;
     TCLAP::ValueArg<int> _processChunks;
-
 
     std::map<std::string, Experiment> _experiments;
     std::map<std::string, Parameter*> _params;
@@ -189,10 +184,11 @@ namespace xp
     std::string _logdir;
     std::string _dataFilename;
     std::ofstream _samplefile;
-    std::ofstream _logfile;
     std::ofstream _statsfile;
 
     libconfig::Config _paramFile;
+
+    mulog::logger scopeLogger;
   };
 
 }

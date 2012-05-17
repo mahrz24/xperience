@@ -38,18 +38,10 @@ kNoErr = 0,
 
 typedef enum Phase
 {
-kInit = 0,
+  kInit = 0,
   kRunning,
   kFinish
-  } Phase;
-
-typedef enum LogLevel
-{
-kStatistics = -1,
-  kError = 0,
-  kInfo,
-  kVerbose,
-  } LogLevel;
+} Phase;
 
 typedef boost::function<Error (Context&)> Callback;
 

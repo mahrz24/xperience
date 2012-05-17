@@ -76,15 +76,12 @@ namespace xp
     Type val;
   };
 
-
   template<typename Type>
   TypedParameter<Type>::TypedParameter() :
   Parameter(TypeDescr<Type>::type),
     arg("","" ,"", false,"", TypeDescr<Type>::descr()),
   val(TypeDescr<Type>::init())
   {}
-
-  
 
   template<typename Type>
   TypedParameter<Type>::TypedParameter(const std::string & parameterName,

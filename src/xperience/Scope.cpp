@@ -3,6 +3,7 @@
 #include "Context.hpp"
 #include "Parameter.hpp"
 
+
 namespace xp
 {
 
@@ -55,6 +56,14 @@ namespace xp
     Error err=kNoErr;
 
     _cmd.parse(argc, argv);
+
+    if(_verbose.isSet())
+      scopeLogger.set_min_severity(mulog::verbose2);
+    else
+      scopeLogger.set_min_severity(mulog::info);
+
+    scopeLogger.add_transformer<mulog::default_transformer,
+      mulog::console_device>(mulog::prefix::severity);
 
 #if defined USE_MPI
     int myRank, numProcs;
@@ -126,23 +135,39 @@ namespace xp
         {
           _logdir+="/" + dateTimeString();
         }
-        mode_t process_mask=umask(0);
-        int result_code=mkdir(_logdir.c_str(), S_IRWXU | S_IRWXG | S_IRWXO);
-        umask(process_mask);
 
-        if(result_code)
+        std::string odir = _logdir;
+        int i=1;
+        int result_code = 0;
+        do
         {
-          if(errno == EEXIST)
-            error("A logging directory with the same timestamp exists");
-          else
-            error("Could not create logging directory");
-          return kFileSystemError;
-        }
+          mode_t process_mask=umask(0);
+          result_code=mkdir(_logdir.c_str(), S_IRWXU | S_IRWXG | S_IRWXO);
+          umask(process_mask);
+
+          if(result_code)
+          {
+            if(errno == EEXIST)
+              msg("A logging directory with the same tag/timestamp exists");
+            else
+            {
+              error("Could not create logging directory");
+              return kFileSystemError;
+            }
+            std::stringstream s;
+            s << i;
+            i++;
+            _logdir = odir + "-" + s.str();
+          }
+        } while(result_code);
         // Logging directory exists now
 
         // Create the log files
         std::string filename(_logdir + "/log.txt");
-        _logfile.open(filename.c_str());
+
+        scopeLogger.add_transformer<mulog::default_transformer,
+          mulog::file_device>(mulog::prefix::extended, filename);
+
         filename=_logdir + "/stats.txt";
         _statsfile.open(filename.c_str());
         filename=_logdir + "/samples.txt";
@@ -480,7 +505,6 @@ namespace xp
       if(myRank == 0)
       {
 #endif
-        _logfile.close();
         _statsfile.close();
 
 #ifdef USE_MPI
@@ -697,125 +721,6 @@ namespace xp
 
     return kNoErr;
   }
-
-  /*
-  Error Scope::registerStringParameter(const std::string & parameterName,
-                                       const std::string & parameterDescription)
-  {
-    if(_params.find(parameterName) != _params.end())
-      return kNameAlreadyRegistered;
-
-    // Create a new parameter
-    Parameter newStringParameter(kString, parameterName, parameterDescription);
-
-    // Store parameter
-    _params[parameterName]=newStringParameter;
-
-    // Register with cmd line options
-    _cmd.add(_params[parameterName].stringArg);
-
-    return kNoErr;
-  }
-
-  Error Scope::setStringParameter(const std::string &parameterName,
-                                  const std::string paramValue)
-  {
-    if(_params.find(parameterName) == _params.end())
-      return kNameNotFound;
-
-    _params[parameterName].stringVal=paramValue;
-
-    return kNoErr;
-  }
-
-  Error Scope::getStringParameter(const std::string &parameterName,
-                                  std::string * paramValue)
-  {
-    if(_params.find(parameterName) == _params.end())
-      return kNameNotFound;
-
-    *paramValue=_params[parameterName].stringVal;
-
-    return kNoErr;
-  }
-
-  Error Scope::registerNumericParameter(const std::string & parameterName, const std::string & parameterDescription)
-  {
-    if(_params.find(parameterName) != _params.end())
-      return kNameAlreadyRegistered;
-
-    // Create a new parameter
-    Parameter newNumericParameter(kNumeric, parameterName, parameterDescription);
-
-    // Store parameter
-    _params[parameterName]=newNumericParameter;
-
-    // Register with cmd line options
-    _cmd.add(_params[parameterName].doubleArg);
-
-    return kNoErr;
-  }
-
-  Error Scope::setNumericParameter(const std::string &parameterName, double paramValue)
-  {
-    if(_params.find(parameterName) == _params.end())
-      return kNameNotFound;
-
-    _params[parameterName].doubleVal=paramValue;
-
-    return kNoErr;
-  }
-
-  Error Scope::getNumericParameter(const std::string &parameterName, double * paramValue)
-  {
-    if(_params.find(parameterName) == _params.end())
-      return kNameNotFound;
-
-    *paramValue=_params[parameterName].doubleVal;
-
-    return kNoErr;
-  }
-
-  Error Scope::registerBoolParameter(const std::string & parameterName, const std::string & parameterDescription)
-  {
-    if(_params.find(parameterName) != _params.end())
-      return kNameAlreadyRegistered;
-
-    // Create a new parameter
-    Parameter newBoolParameter(kBool, parameterName, parameterDescription);
-
-    // Store parameter
-    _params[parameterName]=newBoolParameter;
-
-    // Register with cmd line options
-    _cmd.add(_params[parameterName].boolArg);
-
-    return kNoErr;
-  }
-
-  Error Scope::setBoolParameter(const std::string &parameterName, bool paramValue)
-  {
-    if(_params.find(parameterName) != _params.end())
-      return kNameNotFound;
-
-    _params[parameterName].boolVal=paramValue;
-
-    return kNoErr;
-  }
-
-  Error Scope::getBoolParameter(const std::string &parameterName, bool * paramValue)
-  {
-    if(_params.find(parameterName) != _params.end())
-      return kNameNotFound;
-
-    *paramValue=_params[parameterName].boolVal;
-
-    return kNoErr;
-  }
-  */
-
-
-
 
   void Scope::log(const std::string str)
   {
@@ -1064,69 +969,44 @@ namespace xp
 
   void Scope::error(std::stringstream& string)
   {
-    log(kError, string.str());
+   LLOG(scopeLogger,error) << mulog::format::red << string.str();
   }
 
   void Scope::stats(std::stringstream& string)
   {
-    log(kStatistics, string.str());
+   LLOG(scopeLogger,verbose2) << string.str();
   }
 
   void Scope::msg(std::stringstream& string)
   {
-    log(kInfo, string.str());
+   LLOG(scopeLogger,info) << string.str();
   }
 
   void Scope::verb(std::stringstream& string)
   {
-    log(kVerbose, string.str());
+   LLOG(scopeLogger,verbose) << string.str();
   }
 
   void Scope::error(const std::string& string)
   {
-    log(kError, string);
+    LLOG(scopeLogger,error) <<  mulog::format::red <<  string;
   }
 
   void Scope::stats(const std::string& string)
   {
-    log(kStatistics, string);
+    LLOG(scopeLogger,verbose2) << string;
   }
 
   void Scope::msg(const std::string& string)
   {
-    log(kInfo, string);
+    LLOG(scopeLogger,info) << string;
   }
 
   void Scope::verb(const std::string& string)
   {
-    log(kVerbose, string);
+    LLOG(scopeLogger,verbose) << string;
   }
 
-  void Scope::log(LogLevel lvl, const std::string& string)
-  {
-    if(lvl == kVerbose && !_verbose.isSet())
-      return;
-
-    std::string logString("[" + timeString() + "] " + string);
-
-#pragma omp critical (log)
-    {
-      if(lvl == kError)
-      {
-        _logfile << "ERROR: " << logString << std::endl;
-        std::cerr << "ERROR: " << string << std::endl;
-      }
-      else
-      {
-        if(!(lvl == kStatistics && !_stdoutStatistics.isSet()))
-          std::cout << string << std::endl;
-
-        _logfile << logString << std::endl;
-
-
-      }
-    }
-  }
 
   bool Scope::fexists(std::string & filename)
   {

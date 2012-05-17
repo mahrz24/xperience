@@ -18,50 +18,6 @@ namespace xp
     sweepParameterValue(0),
     phase(kInit)
   {}
-/*
-  Error Context::getNumericParameter(const std::string& parameterName, double * value)
-  {
-    if(!parameterName.compare(sweepParameterName))
-    {
-      *value = sweepParameterValue;
-      return kNoErr;
-    }
-
-    if(scope->params()->find(parameterName)==scope->params()->end())
-      return kNameNotFound;
-
-    *value = (*scope->params())[parameterName].doubleVal;
-
-    return kNoErr;
-  }
-
-  Error Context::getStringParameter(const std::string& parameterName, std::string * value)
-  {
-    if(scope->params()->find(parameterName)==scope->params()->end())
-      return kNameNotFound;
-
-    *value = (*scope->params())[parameterName].stringVal;
-
-    return kNoErr;
-  }
-
-  Error Context::getBoolParameter(const std::string& parameterName, bool * value)
-  {
-    if(scope->params()->find(parameterName)==scope->params()->end())
-      return kNameNotFound;
-
-    *value = (*scope->params())[parameterName].boolVal;
-
-    return kNoErr;
-  }*/
-
-
-  Error Context::log(const std::string message)
-  {
-    scope->log(message);
-
-    return kNoErr;
-  }
 
   void Context::sampleValues(std::vector<double> & values)
   {
@@ -83,7 +39,7 @@ namespace xp
       break;
     case kRunning:
       if(sweepParameterName.length())
-	filename << "_" << sweepParameterName << "_" << sweepParameterValue;
+	      filename << "_" << sweepParameterName << "_" << sweepParameterValue;
       break;
     }
 
@@ -95,6 +51,35 @@ namespace xp
       return kFileSystemError;
 
     return kNoErr;
+  }
+
+  mulog::logger Context::openDataLogger(const std::string& name)
+  {
+    std::stringstream filename;
+    filename << scope->dataFilename() << name;
+
+    switch(phase)
+    {
+    case kInit:
+      filename << "_init";
+      break;
+    case kFinish:
+      filename << "_finish";
+      break;
+    case kRunning:
+      if(sweepParameterName.length())
+        filename << "_" << sweepParameterName << "_" << sweepParameterValue;
+      break;
+    }
+
+    filename << ".txt";
+
+    mulog::logger l;
+
+    l.add_transformer<mulog::default_transformer,
+      mulog::file_device>(mulog::prefix::severity, filename.str());
+
+    return l;
   }
 
 
